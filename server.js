@@ -29,8 +29,8 @@ const isAuth = require("./middleware/isAuth");
 
 app.use("/", express.static(path.join(__dirname, "/public")))
 app.use(credentials)
-app.use(cors(corsOptions))
-// app.use(cors())
+// app.use(cors(corsOptions))
+app.use(cors())
 app.use(express.urlencoded({extended: false}))
 app.use(express.json())
 app.use(cookieParser())
