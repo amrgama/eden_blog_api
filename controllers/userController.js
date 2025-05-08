@@ -15,7 +15,7 @@ const getAccount = async(req, res)=>{
                 path: "posts", 
                 model: "Post", 
                 select: "-content",
-                options: {limit: 10},
+                options: {limit: 5},
                 populate: "author"
             },
             {

@@ -40,9 +40,12 @@ const getPosts = async(req, res)=>{
         const foundedPosts = await Post.find({}, "-content -comments")
         .populate("author", "firstName lastName userName").exec();
 
-        if(!foundedPosts.length) return res.sendStatus(204)
-
-        res.status(200).json({"posts": foundedPosts})
+        res.status(200).json({
+            posts: foundedPosts,
+            limit,
+            page: !!!Math.ceil(skip / limit)? 1 :  Math.ceil(skip / limit) + 1,
+            pageCount: Math.round(count / limit)
+        })
         console.log("posts: ",foundedPosts)
     }
     catch(err){
@@ -65,10 +68,15 @@ const getPostsByQuery = async(req, res)=>{
     try{
         const foundedPosts = await Post.find(findByQuery, "-content -comments", {limit, skip})
         .populate("author", "firstName lastName userName").exec();
+        const count = await Post.countDocuments({});
+        console.log("count>>>>>>>>", count);
 
-        if(!foundedPosts.length) return res.status(200).json({"posts": []})
-
-        res.status(200).json({"posts": foundedPosts})
+        res.status(200).json({
+            posts: foundedPosts,
+            limit,
+            page: !!!Math.ceil(skip / limit)? 1 :  Math.ceil(skip / limit) + 1,
+            pageCount: Math.round(count / limit)
+        })
         console.log("posts in getPostsByQuery: ",foundedPosts)
     }
     catch(err){
@@ -163,9 +171,13 @@ const getUserPosts = async(req, res)=>{
         .exec();
 
         console.log("posts: ",foundedPosts)
-        if(!!!foundedPosts.length) return res.status(200).json({"posts": []})
-
-        res.status(200).json({"posts": foundedPosts})
+        const count= await Post.countDocuments({});
+        res.status(200).json({
+            posts: foundedPosts,
+            limit,
+            page: !!!Math.ceil(skip / limit)? 1 :  Math.ceil(skip / limit) + 1,
+            pageCount: Math.round(count / limit)
+        })
     }
     catch(err){
         return res.sendStatus(500)
@@ -763,15 +775,15 @@ const getComments = async(req, res)=>{
 const increaseReadingsByOne = async(req, res)=>{
     const {postId, isReader} = req.query;
     // console.log("in get comment postId: ", postId, "isReader", isReader)
-
+    // console.log("req.params", req.isPostAuthor, req.hasAccount);
     if(!!!postId || (isReader === undefined || isReader === null)) {
         return res.status(400).json({"errorMsg": "Missing article id or isReader"})
     }
 
     try{
-        const foundedPost = await Post.findById(postId).exec();
+        const foundedPost = !!req.post? req.post: await Post.findById(postId).exec();
 
-        if(isReader === "true"){
+        if(!req.isPostAuthor){
             foundedPost.readings= foundedPost.readings + 1;
             await foundedPost.save();
         }
