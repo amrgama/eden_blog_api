@@ -1,6 +1,11 @@
 const path= require("path");
 const fs= require("fs");
 
+const getFile= async(req, res) => {
+  const file = path.join(__dirname, 'uploads', req.params.filename);
+  res.sendFile(file);
+};
+
 const sendFileUrl = async(req, res)=>{
     // console.log("requpload",req)
     const file = req.file;
@@ -73,6 +78,7 @@ const deleteFile= async(req, res, next)=>{
 }
 
 module.exports = {
+    getFile,
     sendFileUrl,
     updateFile,
     deleteFile

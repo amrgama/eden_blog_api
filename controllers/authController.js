@@ -20,8 +20,8 @@ const handleLogIn = async (req, res)=> {
             const refreshToken = jwt.sign({userId: foundedUser._id}, process.env.REFRESH_TOKEN_SECRETE, {expiresIn: "1d"})
     
             const user = await foundedUser.populate([
-                {path: "following", model: "User", select: "_id firstName lastName userName"}, 
-                {path: "followers", model: "User", select: "_id firstName lastName userName"}
+                {path: "following", model: "User", select: "_id firstName lastName userName", perDocumentLimit: 20}, 
+                {path: "followers", model: "User", select: "_id firstName lastName userName", perDocumentLimit: 2}
             ])
             // .populate("followers", "_id firstName lastName userName")
             // .populate("blockList").exec();

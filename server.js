@@ -20,7 +20,6 @@ dbConn();
 const registerRouter = require("./routes/registerRouter")
 const authRouter = require("./routes/authRouter")
 const userRouter = require("./routes/userRouter")
-const emploiesRouter = require("./routes/emploiesRouter")
 const refreshRouter = require("./routes/refreshRouter");
 const postRouter = require("./routes/postRouter");
 const fileRouter = require("./routes/fileRouter")

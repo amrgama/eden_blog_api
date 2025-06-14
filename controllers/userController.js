@@ -131,22 +131,24 @@ const editAccount = async(req, res)=>{
     console.log("user", user)
 
     try{
+        const foundedUser = await User.findById(user._id)
+        if(!!!foundedUser) return res.status(401).json({errorMsg: "user not found"})
+
         const socialLinks = {"quora": quoraLink, "reddit": redditLink, "youtube": youtubeLink, "facebook": facebookLink, "twitter": twitterLink}
         if(password){
             const hashedPassword = await bcrypt.hash(password, 12);
-
-            const allUserData = {...user._doc, ...restUserInformation, socialLinks, "password": hashedPassword}
-            const updatededUser = await User.findByIdAndUpdate(user._id, {...allUserData});
-            // const updatededUser = await user.save();
-            console.log("updated User: ", updatededUser)
-            return res.sendStatus(201);
+            foundedUser.password= hashedPassword;
         }
 
-        const allUserData = {...user._doc, ...restUserInformation, socialLinks}
-        const updatededUser = await User.findByIdAndUpdate(user._id, {...allUserData});
+        foundedUser = {...foundedUser._doc, ...restUserInformation, socialLinks}
+        await foundedUser.save();
+        // const updatededUser = await User.findByIdAndUpdate(user._id, {...allUserData});
         // const updatededUser = await user.save();
-        console.log("updated User: ", updatededUser)
-        res.sendStatus(201)
+        console.log("updated User: ", foundedUser)
+        res.status(200).json({
+            message: "user updated",
+            user: foundedUser
+        })
     }
     catch(err){
         return res.sendStatus(500)

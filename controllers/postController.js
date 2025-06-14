@@ -59,18 +59,26 @@ const getPostsByQuery = async(req, res)=>{
 
     const {limit, skip, ...findByQuery}= query;
     
-    const validObjKey = ['category', 'cat', 'tag', "createdAt"];
+    const validObjKey = ['category', 'cat', 'tag', "author", "isFeatured", "isHandPicked", "createdAt"];
 
     const validQuery = isValidObj(findByQuery, validObjKey)
     
     if(!validQuery || !!!limit || !!!skip) return res.sendStatus(400)
         console.log("findByQuery>>", findByQuery);
     try{
-        const foundedPosts = await Post.find(findByQuery, "-content -comments", {limit, skip})
-        .populate("author", "firstName lastName userName").exec();
+        const foundedPosts = await Post.find(findByQuery, "-comments", {limit, skip})
+        .populate([
+            {path: "author", select: "firstName lastName userName"}, 
+            {path: "reactionList", select: "firstName lastName userName"},
+            {path: "saveList", select: "firstName lastName userName"},
+        ]).exec();
         const count = await Post.countDocuments({});
         console.log("count>>>>>>>>", count);
-
+        if(req.user?._id != foundedPosts?.author?._id && !!foundedPosts?.isPrivate){
+            return res.status(401).json({
+                message: "unauthorized access"
+            })
+        }
         res.status(200).json({
             posts: foundedPosts,
             limit,
@@ -80,6 +88,7 @@ const getPostsByQuery = async(req, res)=>{
         console.log("posts in getPostsByQuery: ",foundedPosts)
     }
     catch(err){
+        console.log("err", err);
         return res.sendStatus(500)
     }
 }

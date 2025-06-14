@@ -35,6 +35,8 @@ const PostSchema = new Schema({
             ref: "User"
         }
     ],
+    isFeatured: Boolean,
+    isHandPicked: Boolean,
     // comments: {
     //     users: [{
     //         userId: {type: Schema.Types.ObjectId, ref: "User"},

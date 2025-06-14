@@ -6,6 +6,7 @@ const router = require("express").Router();
 // ,isAuth, verfiyJWT
 
 router
+.get("/:filename", isAuth, fileController.getFile)
 .post("/upload", isAuth, upload.single("image"), fileController.sendFileUrl)
 .put("/:imgName", isAuth, upload.single("image"), fileController.updateFile)
 .delete("/:imgName", isAuth, fileController.deleteFile)
