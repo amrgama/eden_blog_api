@@ -3,6 +3,7 @@ const Post = require("../model/post");
 const User = require("../model/user");
 const {isValidObj} = require("../util/helper");
 const bcrypt = require("bcrypt");
+const user = require("../model/user");
 
 const getAccount = async(req, res)=>{
     const {username} = req.query;
@@ -282,6 +283,23 @@ const addToSaveList = async(req, res)=>{
     }
 }
 
+const getSuggestedAccounts = async(req, res)=>{
+    // const accountId = req.params.accountId
+    const user = res.locals.user
+    const userId = user._id
+    console.log("userId", userId, res.locals)
+    if(!userId) return res.status(400).json({errorMsg: "Missing accountId or userId"})
+
+    try{
+        const suggestedAccounts= await User.find({_id: {$nin: [...user.following, userId]}}).select("_id firstName lastName userName vector email")
+      
+        res.status(200).json({suggestedAccounts})
+    }
+    catch(err){
+        console.log("error in follow: ", err);
+        return res.sendStatus(500)
+    }
+}
 const follow = async(req, res)=>{
     const accountId = req.params.accountId
     const user = res.locals.user
@@ -382,15 +400,177 @@ const block = async(req, res)=>{
 }
 
 const search = async(req, res)=>{
-    const keyword = req.query.keyword.toLowerCase()
+    const keyword = req.query.keyword.toLowerCase();
+    const accountId = req.query.accountId?.toLowerCase();
+    let account= null;
+    const searchIn = req.query.searchIn?.toLowerCase() ?? "all";
     // const user = res.locals.user
     // const userId = user._id.toString()
 
-    if(!!!keyword) return res.status(400).json({errorMsg: "Missing keyword query"})
+    if(!!!keyword) return res.status(400).json({errorMsg: "Missing keyword query"});
+    if(!!!accountId && searchIn == "suggested_accounts") return res.status(400).json({errorMsg: "Missing accountId not found"});
+    // if(accountId){
+    //     account= await User.findById(accountId).exec();
+    //     if(!!!account) return res.status(400).json({errorMsg: "Missing account not found"});
+    // }
     // console.log("keyword", keyword)
     try{
-        const users = await User.find({$text: {$search: keyword}}).exec();
-        
+        let users= null;
+        console.log("searchIn>>", searchIn);
+        switch(searchIn){
+            case "followers":{        
+                const userId = new mongoose.Types.ObjectId(accountId);
+
+                const aggregate= [
+                    {
+                        $lookup: {
+                        from: 'users', // The same collection name as in MongoDB
+                        localField: 'followers',
+                        foreignField: '_id',
+                        as: 'followerData'
+                        }
+                    },
+                    {
+                        $addFields: {
+                        matchedFollowers: {
+                            $filter: {
+                            input: '$followerData',
+                            as: 'f',
+                            cond: {
+                                $or: [
+                                {
+                                    $regexMatch: {
+                                    input: '$$f.userName',
+                                    regex: keyword,
+                                    options: 'i'
+                                    }
+                                },
+                                {
+                                    $regexMatch: {
+                                    input: '$$f.name',
+                                    regex: keyword,
+                                    options: 'i'
+                                    }
+                                }
+                                ]
+                            }
+                            }
+                        }
+                        }
+                    },
+                    {
+                        $match: {
+                        'matchedFollowers.0': { $exists: true } // only users with matching followers
+                        }
+                    },
+                    {
+                        $project: {
+                        username: 1,
+                        matchedFollowers: { username: 1, firstName: 1, lastName: 1, vector: 1, _id: 1 }
+                        }
+                    }
+                ]
+
+                if(accountId) {
+                    aggregate.unshift({
+                        $match: { _id: userId }
+                    });
+                }
+
+                const result = await User.aggregate(aggregate);
+                console.log("result>> inFollowing>>", result);
+
+                users= result?.[0]?.matchedFollowers ?? [];
+                console.log("users>> inFollowers>>", users);
+                break;
+            }
+            case "following":{
+                
+                const userId = new mongoose.Types.ObjectId(accountId);
+                const aggregate= [
+                    {
+                        $lookup: {
+                            from: 'users', // The same collection name as in MongoDB
+                            localField: 'following',
+                            foreignField: '_id',
+                            as: 'followerData'
+                        }
+                    },
+                    {
+                        $addFields: {
+                            matchedFollowers: {
+                                $filter: {
+                                input: '$followerData',
+                                as: 'f',
+                                cond: {
+                                    $or: [
+                                        {
+                                            $regexMatch: {
+                                            input: '$$f.userName',
+                                            regex: keyword,
+                                            options: 'i'
+                                            }
+                                        },
+                                        {
+                                            $regexMatch: {
+                                                input: '$$f.name',
+                                                regex: keyword,
+                                                options: 'i'
+                                            }
+                                        }
+                                    ]
+                                }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        $match: {
+                        'matchedFollowers.0': { $exists: true } // only users with matching followers
+                        }
+                    },
+                    {
+                        $project: {
+                        username: 1,
+                        matchedFollowers: { username: 1, firstName: 1, lastName: 1, vector: 1, _id: 1 }
+                        }
+                    }
+                ]
+                if(accountId) {
+                    aggregate.unshift({
+                        $match: { _id: userId }
+                    });
+                    console.log("aggregate", aggregate);
+                }
+
+                const result = await User.aggregate(
+                    aggregate
+                );
+                console.log("result>> inFollowing>>", result);
+                users= result?.[0]?.matchedFollowers ?? [];
+                console.log("users>> inFolloweing>>", users);
+                break;
+            }
+            case "suggested_accounts": {
+                // console.log("account>>", account);
+                account= await User.findById(accountId).exec();
+                if(!!!account) return res.status(400).json({errorMsg: "Missing account not found"});
+                const followersWhoFollowed= account?.followers?.filter(follower=> account.following?.some(acc=> acc == follower));
+               console.log("followersWhoFollowed>>", followersWhoFollowed, "account.followers", account?.followers, "account.following", account.following);
+                users = await User.find({_id: {$nin: [accountId, ...followersWhoFollowed, ...account.following]}, $text: {$search: keyword}}).exec();
+                // users = await User.find({$text: {$search: keyword}}).exec();
+                console.log("users>> inSuggestedAccounts>>", users);
+                // users= [];
+                break;
+            }
+            case "all":
+                default: {
+                    users = await User.find({$text: {$search: keyword}}).exec();
+                    console.log("users>> inAll>>", users);
+                }
+                
+        }
+
         res.status(200).json({users})
     }
     catch(err){
@@ -399,4 +579,4 @@ const search = async(req, res)=>{
 }
 
 
-module.exports = {getAccount, getMyAccount,getAccountInfo, getMyAccountInfo, editAccount, getMyPosts, getUserPosts, getPosts, getSaveListPosts, addToSaveList, follow, unfollow, block, search};
+module.exports = {getAccount, getMyAccount,getAccountInfo, getSuggestedAccounts, getMyAccountInfo, editAccount, getMyPosts, getUserPosts, getPosts, getSaveListPosts, addToSaveList, follow, unfollow, block, search};

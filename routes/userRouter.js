@@ -12,6 +12,7 @@ router
 .post("/vector/upload", isAuth, verfiyJWT, fileController.sendFileUrl)
 .get("/my-account", isAuth, verfiyJWT, userController.getMyAccount)
 .get("/account", userController.getAccount)
+.get("/suggested-accounts", isAuth, verfiyJWT, userController.getSuggestedAccounts)
 .put("/account/edit", isAuth, verfiyJWT, userController.editAccount)
 .put("/:accountId/follow", isAuth, verfiyJWT, userController.follow)
 .put("/:accountId/unFollow", isAuth, verfiyJWT, userController.unfollow)
